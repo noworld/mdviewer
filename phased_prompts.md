@@ -75,8 +75,21 @@ python manage.py check
 
 ---
 
-Read `spec.md`. Implement **Phase 2 only** — the section tagged
-`<!-- phase:2 -->`: "Database Layer".
+Read `spec.md` and `db-spec.md`. Implement **Phase 2 only** — the
+section tagged `<!-- phase:2 -->` in `spec.md`: "Database Layer".
+
+Use `db-spec.md` as a cross-reference: the DDL there is the exact SQL
+schema the Django model must produce. Verify that every column name,
+type, default value, CHECK constraint, UNIQUE constraint, and index in
+the DDL has a corresponding field or `Meta` entry in the model. Note
+in particular:
+
+- `db_table = 'mdlibrary'` (overrides Django's default `library_mdlibrary`)
+- The `UNIQUE` constraint on `(file_name, file_version)` and the index
+  on `file_name` are both declared in `Meta`
+- `deleted` is a `BooleanField` — Django maps it to SQLite `INTEGER`
+  `0`/`1` transparently
+- `created_at` uses `auto_now_add=True`; `updated_at` uses `auto_now=True`
 
 The Phase 1 files already exist. Create only:
 
