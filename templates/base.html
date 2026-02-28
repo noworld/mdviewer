@@ -1,0 +1,112 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {# Apply stored theme before first paint to avoid a flash of wrong mode #}
+  <script>
+    document.documentElement.setAttribute(
+      'data-bs-theme',
+      localStorage.getItem('theme') || 'dark'
+    );
+  </script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MD Viewer{% endblock %}</title>
+
+  {# Google Fonts preconnect #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  {# CSS — order within this group is not significant #}
+  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/bootstrap-table/1.23.2/dist/bootstrap-table.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+
+  {# Google Fonts #}
+  <link href="https://fonts.googleapis.com/css2?family=Workbench&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=TASA+Orbiter:wght@400..800&display=swap" rel="stylesheet">
+
+  {# Pygments syntax-highlight CSS (generated from HtmlFormatter) #}
+  <link rel="stylesheet" href="{% static 'library/css/pygments.css' %}">
+
+  {# Scripts — jQuery first; Bootstrap-Table depends on jQuery #}
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/bootstrap-table/1.23.2/dist/bootstrap-table.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'TASA Orbiter', sans-serif;
+    }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  {# ── Common header ─────────────────────────────────────────────────────── #}
+  <div class="container-fluid px-4 pt-3 pb-2 d-flex align-items-center justify-content-between border-bottom">
+    <span style="font-family: 'Workbench', sans-serif; font-size: 48px; font-style: italic;">MD Viewer</span>
+    <button id="theme-toggle" class="btn btn-outline-secondary" type="button" aria-label="Toggle light/dark mode">
+      <i id="theme-icon" class="bi"></i>
+    </button>
+  </div>
+
+  {# ── Navigation bar ────────────────────────────────────────────────────── #}
+  <nav class="navbar navbar-expand bg-body-secondary px-4 mb-4">
+    <div class="navbar-nav">
+      <a class="nav-link{% if request.path == '/' or request.path == '/search/' %} active{% endif %}"
+         href="/search/">Search</a>
+      <a class="nav-link{% if request.path == '/upload/' %} active{% endif %}"
+         href="/upload/">Upload</a>
+      <a class="nav-link{% if request.path == '/admin-panel/' %} active{% endif %}"
+         href="/admin-panel/">Admin</a>
+    </div>
+  </nav>
+
+  {# ── Page content ──────────────────────────────────────────────────────── #}
+  <main class="container-fluid px-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  {# ── Base scripts ──────────────────────────────────────────────────────── #}
+  <script>
+    // Dark/light mode toggle — reads and writes browser localStorage
+    function setThemeIcon(theme) {
+      document.getElementById('theme-icon').className =
+        theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+    }
+
+    // Sync icon with the theme already applied by the <head> inline script
+    setThemeIcon(document.documentElement.getAttribute('data-bs-theme'));
+
+    document.getElementById('theme-toggle').addEventListener('click', function () {
+      var current = document.documentElement.getAttribute('data-bs-theme');
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-bs-theme', next);
+      localStorage.setItem('theme', next);
+      setThemeIcon(next);
+    });
+
+    // Read a named cookie value
+    function getCookie(name) {
+      var value = '; ' + document.cookie;
+      var parts = value.split('; ' + name + '=');
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    }
+
+    // Attach CSRF token to all non-safe AJAX requests automatically
+    $.ajaxSetup({
+      beforeSend: function (xhr, settings) {
+        if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
+          xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+        }
+      }
+    });
+  </script>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

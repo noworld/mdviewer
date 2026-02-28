@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload — MD Viewer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-md-10 col-lg-8">
+
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Upload Markdown File</h5>
+      </div>
+      <div class="card-body">
+
+        {# Alert container — hidden until a submission result arrives #}
+        <div id="upload-alert" class="mb-3 d-none"></div>
+
+        <form id="upload-form" novalidate>
+
+          {# File Name #}
+          <div class="mb-3">
+            <label for="file-name" class="form-label">File Name</label>
+            <input type="text" class="form-control" id="file-name"
+                   placeholder="e.g. my-document.md" maxlength="255" required>
+            <div class="invalid-feedback" id="file-name-error"></div>
+          </div>
+
+          {# Select File — auto-populates File Name and Markdown Content via FileReader #}
+          <div class="mb-3">
+            <label for="file-select" class="form-label">Select File</label>
+            <input type="file" class="form-control" id="file-select" accept=".md,.txt">
+          </div>
+
+          {# Markdown Content #}
+          <div class="mb-3">
+            <label for="file-contents" class="form-label">Markdown Content</label>
+            <textarea class="form-control font-monospace" id="file-contents" rows="15"
+                      placeholder="Paste or type markdown content here, or select a .md file above."
+                      required></textarea>
+            <div class="invalid-feedback" id="file-contents-error"></div>
+          </div>
+
+          {# Action buttons #}
+          <div class="d-flex gap-2">
+            <button type="submit" id="upload-btn" class="btn btn-primary">
+              <span id="upload-spinner"
+                    class="spinner-border spinner-border-sm d-none me-1"
+                    role="status" aria-hidden="true"></span>
+              Upload
+            </button>
+            <button type="button" id="clear-btn" class="btn btn-secondary">Clear</button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // ── FileReader — auto-populate when a file is chosen ──────────────────────
+  document.getElementById('file-select').addEventListener('change', function () {
+    var file = this.files[0];
+    if (!file) return;
+    // File Name: use the file's own name (browser strips the path)
+    document.getElementById('file-name').value = file.name;
+    // Markdown Content: read as UTF-8 text
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      document.getElementById('file-contents').value = e.target.result;
+    };
+    reader.readAsText(file);
+  });
+
+  // ── Clear button ───────────────────────────────────────────────────────────
+  document.getElementById('clear-btn').addEventListener('click', function () {
+    document.getElementById('upload-form').reset();
+    document.getElementById('file-name').classList.remove('is-invalid');
+    document.getElementById('file-contents').classList.remove('is-invalid');
+    var alertEl = document.getElementById('upload-alert');
+    alertEl.classList.add('d-none');
+    alertEl.innerHTML = '';
+  });
+
+  // ── Alert helper — user text always via textContent, never innerHTML ───────
+  function showAlert(type, message) {
+    var alertEl = document.getElementById('upload-alert');
+    // Static structure only — user-supplied text is applied below via textContent
+    alertEl.innerHTML =
+      '<div class="alert alert-' + type + ' alert-dismissible fade show mb-0" role="alert">' +
+        '<span class="alert-text"></span>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+      '</div>';
+    alertEl.classList.remove('d-none');
+    alertEl.querySelector('.alert-text').textContent = message;
+  }
+
+  // ── Client-side validation ─────────────────────────────────────────────────
+  function validateForm() {
+    var valid = true;
+    var fileNameEl      = document.getElementById('file-name');
+    var fileContentsEl  = document.getElementById('file-contents');
+    var fileNameErrEl   = document.getElementById('file-name-error');
+    var fileContentsErrEl = document.getElementById('file-contents-error');
+
+    fileNameEl.classList.remove('is-invalid');
+    fileContentsEl.classList.remove('is-invalid');
+
+    var fileName = fileNameEl.value;
+    if (!fileName) {
+      fileNameEl.classList.add('is-invalid');
+      fileNameErrEl.textContent = 'File name is required.';
+      valid = false;
+    } else if (fileName.length > 255) {
+      fileNameEl.classList.add('is-invalid');
+      fileNameErrEl.textContent = 'File name must be 255 characters or fewer.';
+      valid = false;
+    } else if (!/^[A-Za-z0-9\-_.]+$/.test(fileName)) {
+      fileNameEl.classList.add('is-invalid');
+      fileNameErrEl.textContent =
+        'File name may only contain alphanumeric characters, hyphens, underscores, or dots.';
+      valid = false;
+    }
+
+    var fileContents = fileContentsEl.value;
+    if (!fileContents || !fileContents.trim()) {
+      fileContentsEl.classList.add('is-invalid');
+      fileContentsErrEl.textContent = 'Markdown content is required and must not be blank.';
+      valid = false;
+    }
+
+    return valid;
+  }
+
+  // ── Form submission ────────────────────────────────────────────────────────
+  document.getElementById('upload-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    var uploadBtn  = document.getElementById('upload-btn');
+    var spinner    = document.getElementById('upload-spinner');
+    var alertEl    = document.getElementById('upload-alert');
+
+    uploadBtn.disabled = true;
+    spinner.classList.remove('d-none');
+    alertEl.classList.add('d-none');
+    alertEl.innerHTML = '';
+
+    var fileName     = document.getElementById('file-name').value;
+    var fileContents = document.getElementById('file-contents').value;
+
+    $.ajax({
+      url: '/api/v1/library/',
+      method: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({ file_name: fileName, file_contents: fileContents }),
+
+      success: function (data) {
+        var version = data.result.file_version;
+        var name    = data.result.file_name;
+        var alertType, message;
+
+        // file_version === 1 → new file; > 1 → new version of existing file
+        if (version === 1) {
+          alertType = 'success';
+          message   = '"' + name + '" was uploaded successfully as version 1.';
+        } else {
+          alertType = 'info';
+          message   = 'A new version (v' + version + ') of "' + name + '" was created.';
+        }
+        showAlert(alertType, message);
+
+        // Clear form so another file can be uploaded immediately
+        document.getElementById('upload-form').reset();
+        document.getElementById('file-name').classList.remove('is-invalid');
+        document.getElementById('file-contents').classList.remove('is-invalid');
+      },
+
+      error: function (xhr) {
+        var message;
+        if (xhr.status === 429) {
+          message = 'Too many requests. Please wait a moment before uploading again.';
+        } else {
+          var data = xhr.responseJSON;
+          message = (data && data.error) ? data.error : 'An error occurred. Please try again.';
+        }
+        showAlert('danger', message);
+      },
+
+      complete: function () {
+        uploadBtn.disabled = false;
+        spinner.classList.add('d-none');
+      }
+    });
+  });
+</script>
+{% endblock %}
