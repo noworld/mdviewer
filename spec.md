@@ -735,11 +735,11 @@ Returns aggregate counts used by the Admin page.
 - Return `200 SUCCESS` with the stats object.
 - Return `500 FAILURE` on any unhandled exception.
 
-## Web Frontend <!-- phase:4 -->
+## Web Frontend <!-- phase:4, phase:5 -->
 
 Browser AJAX calls should always call the Django ORM/API layer. All calls to external web services, APIs, or to the SQLite database will be made through and from the Django ORM/API layer, never from the browser html/javascript.
 
-### Web Frontend Security
+### Web Frontend Security <!-- phase:4 -->
 
 #### CSRF Token Handling
 
@@ -751,11 +751,11 @@ JavaScript must never use `.html()`, `innerHTML`, or equivalent methods to inser
 
 The Django web app should use a base template for all pages that includes links to the javascript libraries and displays a common header with the site name "MD Viewer" at the top left in italics. The base template must include `{% load static %}` at the top to enable the `{% static %}` template tag. Load the Pygments CSS using `<link rel="stylesheet" href="{% static 'library/css/pygments.css' %}">` in the HEAD.
 
-### Web UI Color Scheme
+### Web UI Color Scheme <!-- phase:4 -->
 
 The UI should use the standard color scheme that comes with Bootstrap and use Bootstrap to toggle between light mode and dark mode. The default mode is dark mode. When the web UI loads, read the user's preference from browser local storage. If no preference has been stored, default to dark mode. When the user toggles light/dark mode, save the updated preference to browser local storage so it persists across page loads and sessions.
 
-### Frontend Web Libraries
+### Frontend Web Libraries <!-- phase:4 -->
 
 The web frontend uses libraries linked via CDN. Load them in the HTML HEAD tag in the order shown below. **Script loading order matters:** jQuery must be loaded before Bootstrap-Table JS, which depends on it.
 
@@ -784,10 +784,10 @@ Scripts (must be loaded in this order):
   - <link href="https://fonts.googleapis.com/css2?family=TASA+Orbiter:wght@400..800&display=swap" rel="stylesheet">
 
 
-### Common Header and Fonts
+### Common Header and Fonts <!-- phase:4 -->
 The common header should use the Workbench font at 48px size for the site title. Everything else on the site should use the TASA Orbiter font with a size appropriate for the usage in the UI. The common header should include a light/dark mode toggle button using Bootstrap's color mode functionality. When the user toggles light/dark mode, store the updated setting in browser local storage. No login or logout functionality is required.
 
-### Navigation Bar
+### Navigation Bar <!-- phase:4 -->
 
 The base template includes a Bootstrap navbar below the common header. The navbar contains links to each page. The link for the currently active page is highlighted using Bootstrap's `active` class. Nav links:
 
@@ -799,7 +799,7 @@ Use `/admin-panel` as the URL for the admin page to avoid conflicting with Djang
 
 ---
 
-### List of Pages
+### List of Pages <!-- phase:4 -->
 
 The web frontend uses Django to display dynamic HTML and consists of the following pages:
 
@@ -809,7 +809,7 @@ The web frontend uses Django to display dynamic HTML and consists of the followi
 
 ---
 
-### Search Page
+### Search Page <!-- phase:5 -->
 
 **URL:** `/search` — also serves as the default home page at `/`
 
@@ -867,7 +867,7 @@ The web frontend uses Django to display dynamic HTML and consists of the followi
 
 ---
 
-### Upload Page
+### Upload Page <!-- phase:4 -->
 
 **URL:** `/upload`
 
@@ -901,7 +901,7 @@ The web frontend uses Django to display dynamic HTML and consists of the followi
 
 ---
 
-### Admin Page
+### Admin Page <!-- phase:5 -->
 
 **URL:** `/admin-panel`
 

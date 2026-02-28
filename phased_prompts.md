@@ -55,12 +55,25 @@ When done, list every file you created.
 
 ```bash
 pip install -r requirements.txt
+```
 
-# Generate a random secret key and set it for the current shell session.
-# Windows cmd: set DJANGO_SECRET_KEY=<paste a long random string>
-# Windows PowerShell: $env:DJANGO_SECRET_KEY="<paste a long random string>"
+Generate and permanently save a secret key as a user-level environment
+variable (persists across terminal sessions — do this once):
+
+```
+# Windows cmd (run once — survives terminal restarts):
+python -c "import secrets; print(secrets.token_urlsafe(50))"
+# Copy the output, then:
+setx DJANGO_SECRET_KEY "<paste output here>"
+# Close and reopen your terminal for setx to take effect.
+
+# macOS / Linux (add to your shell profile, e.g. ~/.bashrc or ~/.zshrc):
 export DJANGO_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(50))')"
+```
 
+Then verify the project is configured correctly:
+
+```bash
 python manage.py check
 ```
 
@@ -178,16 +191,17 @@ curl -s http://localhost:8000/api/v1/library/stats/ | python -m json.tool
 
 ---
 
-## Phase 4 — Frontend and Templates
+## Phase 4 — Base Template and Upload Page
 
 > Copy and send this prompt to the AI:
 
 ---
 
-Read `spec.md`. Implement **Phase 4 only** — the section tagged
-`<!-- phase:4 -->`: "Web Frontend" (all subsections: Web Frontend
-Security, Web UI Color Scheme, Frontend Web Libraries, Common Header
-and Fonts, Navigation Bar, Search Page, Upload Page, Admin Page).
+Read `spec.md`. Implement **Phase 4 only** — the subsections of
+`## Web Frontend <!-- phase:4, phase:5 -->` tagged `<!-- phase:4 -->`:
+"Web Frontend Security", "Web UI Color Scheme", "Frontend Web
+Libraries", "Common Header and Fonts", "Navigation Bar", "List of
+Pages", and "Upload Page".
 
 The Phase 1–3 files already exist. Create only these files — do not
 modify any Python files:
@@ -196,15 +210,15 @@ modify any Python files:
   CDN links in the specified load order, Pygments CSS link, common
   header with Workbench font and dark/light mode toggle, Bootstrap
   navbar, and `$.ajaxSetup()` CSRF configuration
-- `templates/library/search.html` — extends base; full search form,
-  results table, and tab area with per-tab Rendered/Raw toggle
 - `templates/library/upload.html` — extends base; upload form card with
-  FileReader auto-populate
-- `templates/library/admin.html` — extends base; stats cards, filter
-  toggle buttons, records table, and delete confirmation modal
+  FileReader auto-populate, client-side validation, and AJAX feedback
+  alerts
 - `library/static/library/css/pygments.css` — write a single comment
   line as a placeholder:
   `/* Regenerate: python -c "from pygments.formatters import HtmlFormatter; print(HtmlFormatter(style='default').get_style_defs('.highlight'))" > library/static/library/css/pygments.css */`
+
+**Do not implement:** `templates/library/search.html` or
+`templates/library/admin.html` — those are Phase 5.
 
 When done, list every file you created.
 
@@ -218,6 +232,55 @@ Generate the real Pygments CSS (overwrites the placeholder):
 python -c "from pygments.formatters import HtmlFormatter; print(HtmlFormatter(style='default').get_style_defs('.highlight'))" > library/static/library/css/pygments.css
 ```
 
+Start the server:
+
+```bash
+python manage.py runserver
+```
+
+**Phase 4 is complete when:** `http://localhost:8000/upload/` loads in a
+browser with correct Bootstrap styling, the light/dark mode toggle works
+and persists across page loads, and the browser JavaScript console shows
+no errors.
+
+---
+
+## Phase 5 — Search and Admin Pages
+
+> Copy and send this prompt to the AI:
+
+---
+
+Read `spec.md`. Implement **Phase 5 only** — the subsections of
+`## Web Frontend <!-- phase:4, phase:5 -->` tagged `<!-- phase:5 -->`:
+"Search Page" and "Admin Page".
+
+The Phase 1–4 files already exist, including `templates/base.html`.
+Extend it. Create only these files — do not modify any existing file:
+
+- `templates/library/search.html` — extends base; search form, results
+  table using Bootstrap-Table, and the tab area with per-tab
+  Rendered/Raw toggle. Key behaviours to implement exactly:
+  - View button reads `data-id` from its row to call
+    `GET /api/v1/library/{id}/`
+  - Opening a file already open switches focus to its existing tab
+    rather than duplicating it
+  - Each tab independently tracks its own Rendered/Raw toggle state
+  - Tab content is cached in the DOM — no re-fetch when switching tabs
+  - Tab area is hidden on page load; shown when first tab opens; hidden
+    again when last tab is closed
+- `templates/library/admin.html` — extends base; stats cards loaded via
+  `GET /api/v1/library/stats/` on page load, filter toggle buttons
+  (Active Only pre-selected), Bootstrap-Table records table,
+  client-side file name filter input, delete confirmation modal, and
+  inline row updates (badge + button swap without full table reload)
+
+When done, list every file you created.
+
+---
+
+**After the AI is done, you run:**
+
 Collect static files and start the server:
 
 ```bash
@@ -225,5 +288,7 @@ python manage.py collectstatic --noinput
 python manage.py runserver
 ```
 
-**Phase 4 is complete when:** all three pages load in a browser at
-`http://localhost:8000` without JavaScript console errors.
+**Phase 5 is complete when:** all three pages load at
+`http://localhost:8000` without JavaScript console errors, the search
+tab system opens and closes files correctly, and the admin delete and
+undelete actions update the row in place.
