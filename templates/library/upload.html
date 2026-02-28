@@ -60,7 +60,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
+<script nonce="{{ request.csp_nonce }}">
   // ── FileReader — auto-populate when a file is chosen ──────────────────────
   document.getElementById('file-select').addEventListener('change', function () {
     var file = this.files[0];

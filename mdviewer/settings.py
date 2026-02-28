@@ -75,6 +75,7 @@ REST_FRAMEWORK = {
         'library_update': '20/minute',
         'library_delete': '20/minute',
         'library_stats': '30/minute',
+        'library_clear': '2/minute',
     },
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',

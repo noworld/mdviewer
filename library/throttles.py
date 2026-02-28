@@ -23,3 +23,7 @@ class LibraryDeleteThrottle(AnonRateThrottle):
 
 class LibraryStatsThrottle(AnonRateThrottle):
     scope = 'library_stats'
+
+
+class LibraryClearThrottle(AnonRateThrottle):
+    scope = 'library_clear'

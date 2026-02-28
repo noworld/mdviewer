@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from library.models import MdLibrary
 from library.serializers import MdLibraryDetailSerializer, MdLibraryMetaSerializer
 from library.throttles import (
+    LibraryClearThrottle,
     LibraryCreateThrottle,
     LibraryDeleteThrottle,
     LibraryDetailThrottle,
@@ -254,6 +255,22 @@ class LibraryDetailView(LibraryBaseView):
             return Response(status=204)
         except Exception:
             logger.exception('Unhandled exception in LibraryDetailView.delete')
+            return Response(
+                {'status': 'FAILURE', 'error': 'An internal server error occurred.'},
+                status=500,
+            )
+
+
+class LibraryClearView(LibraryBaseView):
+    throttle_classes = [LibraryClearThrottle]
+
+    def delete(self, request):
+        try:
+            deleted_count, _ = MdLibrary.objects.all().delete()
+            logger.info('Database cleared: %d record(s) permanently deleted', deleted_count)
+            return Response(status=204)
+        except Exception:
+            logger.exception('Unhandled exception in LibraryClearView.delete')
             return Response(
                 {'status': 'FAILURE', 'error': 'An internal server error occurred.'},
                 status=500,

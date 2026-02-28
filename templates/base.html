@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   {# Apply stored theme before first paint to avoid a flash of wrong mode #}
-  <script>
+  <script nonce="{{ request.csp_nonce }}">
     document.documentElement.setAttribute(
       'data-bs-theme',
       localStorage.getItem('theme') || 'dark'
@@ -71,7 +71,7 @@
   </main>
 
   {# ── Base scripts ──────────────────────────────────────────────────────── #}
-  <script>
+  <script nonce="{{ request.csp_nonce }}">
     // Dark/light mode toggle — reads and writes browser localStorage
     function setThemeIcon(theme) {
       document.getElementById('theme-icon').className =
