@@ -6,7 +6,7 @@ MdViewer - Markdown database and viewer
 
 ## Summary 
 
-This app will maintain a database (Sqlite) that stores markdown files and a web app that allows the user to select, view, and delete markdown files. No markdown editing will be required; only uploading markdown and then viewing the markdown. The markdown can be viewed both as rendered HTML and the raw markdown file. This is a simple app that will run on a desktop using Python version 3.12.2, so SQLite will be sufficient for a database and no login will be required.
+The goal of this project is to build a lightweight desktop web application that manages a collection of Markdown documents. A SQLite database will keep the uploaded files, and the interface will let users browse the list, open documents for viewing, or remove them from the store. There is no requirement for in‑place editing – users simply upload Markdown files and then inspect them either as raw text or rendered HTML. Because the application targets a single‑user desktop environment running Python 3.12.2, an SQLite backend is adequate and no authentication system will be implemented.
 
 ## Tech Stack
 
