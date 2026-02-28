@@ -1,0 +1,8 @@
+database_path: db/mdviewer.db
+log_directory: logs
+log_level: INFO
+debug: true  # Use false only in production; Django's runserver does not serve static files when DEBUG is false
+allowed_hosts:
+  - localhost
+  - 127.0.0.1
+max_upload_bytes: 1048576  # 1 MB

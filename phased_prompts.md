@@ -54,6 +54,9 @@ When done, list every file you created.
 **After the AI is done, you run** (in order):
 
 ```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 

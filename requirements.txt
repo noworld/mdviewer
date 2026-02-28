@@ -1,0 +1,6 @@
+Django~=5.1
+djangorestframework~=3.15
+Markdown~=3.7
+nh3~=0.2
+Pygments~=2.18
+PyYAML~=6.0

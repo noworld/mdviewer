@@ -101,6 +101,11 @@ Per-endpoint rate limits are applied using custom per-view throttle classes (one
 
 ```python
 REST_FRAMEWORK = {
+    # No auth or user model — disable DRF's default AnonymousUser import,
+    # which pulls in django.contrib.auth and django.contrib.contenttypes.
+    'UNAUTHENTICATED_USER': None,
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PERMISSION_CLASSES': [],
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
     ],
