@@ -30,7 +30,7 @@ This web app is based on Python. Django will be used for the web front end, API 
 
 Neither django-markdown-deux nor any Django-specific HTML sanitization integration is required. Use nh3 directly in the view/API layer to sanitize rendered HTML output from python-markdown.
 
-## Python Environment Setup
+## Python Environment Setup <!-- phase:1 -->
 * Ensure that Python is updated to the most current version of Python 3
 * Ensure that Python PIP is updated to the most current version
 * Create a python virtual environment
@@ -48,7 +48,7 @@ Pygments~=2.18
 PyYAML~=6.0
 ```
 
-## App Creation Overview
+## App Creation Overview <!-- phase:1 -->
 * Create the Django project
 * Make sure to run manage.py migrate after changing your settings.
 * Be sure to regenerate static when done making changes.
@@ -58,7 +58,7 @@ PyYAML~=6.0
 * Create the REST API according to the 'ORM/API Layer' parameters below.
 * Create the Django web app according to the 'Web Frontend' parameters below.
 
-## Django Project Configuration
+## Django Project Configuration <!-- phase:1 -->
 
 ### Project and App Names
 
@@ -95,7 +95,7 @@ MIDDLEWARE = [
 ]
 ```
 
-#### REST_FRAMEWORK
+#### REST_FRAMEWORK <!-- phase:1, phase:3 -->
 
 Per-endpoint rate limits are applied using custom per-view throttle classes (one class per endpoint). The `DEFAULT_THROTTLE_RATES` entry below is a global fallback; each view's throttle class defines its own rate per the Rate Limiting table in the ORM/API Security section.
 
@@ -224,7 +224,7 @@ class ContentSecurityPolicyMiddleware:
 
 This middleware must be listed in `MIDDLEWARE` immediately after `SecurityMiddleware` (see MIDDLEWARE section above).
 
-### URL Configuration
+### URL Configuration <!-- phase:1, phase:3 -->
 
 Create the following URL configuration files.
 
@@ -268,7 +268,7 @@ urlpatterns = [
 
 > Django's `APPEND_SLASH = True` default means requests to `/search`, `/upload`, and `/admin-panel` (without trailing slash) are redirected to their trailing-slash equivalents automatically.
 
-## Database Layer
+## Database Layer <!-- phase:2 -->
 
 The database will use SQLite and have the following table:
 
@@ -314,7 +314,7 @@ The `deleted` column is used for soft delete and defaults to `0` (not deleted). 
 
 `TEXT` in SQLite has no database-level size limit. The maximum allowed file size is read from `max_upload_bytes` in `mdviewer.yaml` and enforced in the API layer at upload time to prevent performance degradation and excessive disk usage.
 
-## YAML Configuration File
+## YAML Configuration File <!-- phase:1 -->
 
 The YAML configuration file (`mdviewer.yaml`) lives in the project root directory and is loaded once at Django startup. Add the following block at the top of `mdviewer/settings.py`, before any setting that depends on it, so the loaded values are available to `DATABASES`, `LOGGING`, and other settings:
 
@@ -352,7 +352,7 @@ allowed_hosts:
 max_upload_bytes: 1048576  # 1 MB
 ```
 
-## ORM/API Layer
+## ORM/API Layer <!-- phase:3 -->
 
 The ORM/API layer consists of objects and CRUD operations for transferring data between API calls and the SQLite database. All endpoints are implemented using DjangoRestFramework.
 
@@ -735,7 +735,7 @@ Returns aggregate counts used by the Admin page.
 - Return `200 SUCCESS` with the stats object.
 - Return `500 FAILURE` on any unhandled exception.
 
-## Web Frontend
+## Web Frontend <!-- phase:4 -->
 
 Browser AJAX calls should always call the Django ORM/API layer. All calls to external web services, APIs, or to the SQLite database will be made through and from the Django ORM/API layer, never from the browser html/javascript.
 
