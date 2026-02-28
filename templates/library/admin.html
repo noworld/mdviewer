@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin — MD Viewer{% endblock %}
+
+{% block content %}
+<div id="admin-alert" class="mb-3 d-none"></div>
+
+{# Stats Cards #}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-sm-4">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2 text-muted">Active Files</h6>
+        <p class="card-text fs-2 fw-bold mb-0" id="stat-active-files">—</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-4">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2 text-muted">Total Records</h6>
+        <p class="card-text fs-2 fw-bold mb-0" id="stat-total-records">—</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-4">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2 text-muted">Deleted Records</h6>
+        <p class="card-text fs-2 fw-bold mb-0" id="stat-deleted-records">—</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Filter Controls #}
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+  <div class="btn-group" role="group" aria-label="Filter records">
+    <button type="button" class="btn btn-outline-secondary filter-btn active"
+            data-deleted="false">Active Only</button>
+    <button type="button" class="btn btn-outline-secondary filter-btn"
+            data-deleted="true">Deleted Only</button>
+    <button type="button" class="btn btn-outline-secondary filter-btn"
+            data-deleted="">All Records</button>
+  </div>
+  <input type="text" class="form-control" id="name-filter"
+         placeholder="Filter by file name" style="max-width: 280px;">
+</div>
+
+{# Records Table #}
+<div class="card mb-4">
+  <div class="card-body p-0">
+    <table id="admin-table">
+      <thead>
+        <tr>
+          <th>File Name</th>
+          <th>Version</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+{# Danger Zone #}
+<div class="card border-danger mb-4">
+  <div class="card-header bg-danger text-white fw-bold">Danger Zone</div>
+  <div class="card-body">
+    <p class="mb-3">Permanently delete all records from the database. This action cannot be undone.</p>
+    <button type="button" id="clear-db-btn" class="btn btn-danger">
+      <i class="bi bi-database-x me-1"></i>Clear Database
+    </button>
+  </div>
+</div>
+
+{# Delete Confirmation Modal #}
+<div class="modal fade" id="delete-modal" tabindex="-1"
+     aria-labelledby="delete-modal-label" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="delete-modal-label">Confirm Delete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p id="delete-modal-body-text" class="mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="delete-confirm-btn">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Clear Database Confirmation Modal #}
+<div class="modal fade" id="clear-db-modal" tabindex="-1"
+     aria-labelledby="clear-db-modal-label" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="clear-db-modal-label">Clear Database</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">This will permanently delete ALL records from the database.
+          This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="clear-db-confirm-btn">Clear Database</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+  'use strict';
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  var pendingDeleteId = null;
+  var activeFilter    = 'false';  // 'false' | 'true' | ''
+
+  // ── Bootstrap-Table init ──────────────────────────────────────────────────
+  var $table = $('#admin-table');
+  $table.bootstrapTable({
+    sortName: 'file_name',
+    sortOrder: 'asc',
+    uniqueId: 'id',
+    rowAttributes: function (row) {
+      return {
+        'data-id':           row.id,
+        'data-file-name':    row.file_name,
+        'data-file-version': row.file_version,
+      };
+    },
+    columns: [
+      { field: 'file_name',    title: 'File Name', sortable: true },
+      { field: 'file_version', title: 'Version',   sortable: true,
+        sorter: function (a, b) { return a - b; } },
+      {
+        field: 'deleted',
+        title: 'Status',
+        formatter: function (deleted) {
+          return deleted
+            ? '<span class="badge bg-danger">Deleted</span>'
+            : '<span class="badge bg-success">Active</span>';
+        }
+      },
+      {
+        field: 'id',
+        title: 'Actions',
+        formatter: function (id, row) {
+          if (row.deleted) {
+            return '<button type="button" class="btn btn-sm btn-success undelete-btn">' +
+                   '<i class="bi bi-arrow-counterclockwise me-1"></i>Undelete</button>';
+          }
+          return '<button type="button" class="btn btn-sm btn-danger delete-btn">' +
+                 '<i class="bi bi-trash me-1"></i>Delete</button>';
+        },
+        events: {
+          'click .delete-btn': function (e, value, row) {
+            pendingDeleteId = row.id;
+            document.getElementById('delete-modal-body-text').textContent =
+              'Are you sure you want to delete "' + row.file_name +
+              '" version ' + row.file_version + '? This action can be undone.';
+            deleteModal.show();
+          },
+          'click .undelete-btn': function (e, value, row) {
+            undeleteRecord(row.id);
+          }
+        }
+      }
+    ]
+  });
+
+  // ── Modal instances ───────────────────────────────────────────────────────
+  var deleteModal  = new bootstrap.Modal(document.getElementById('delete-modal'));
+  var clearDbModal = new bootstrap.Modal(document.getElementById('clear-db-modal'));
+
+  // Reset pending ID when the delete modal is dismissed without confirming
+  document.getElementById('delete-modal').addEventListener('hidden.bs.modal', function () {
+    pendingDeleteId = null;
+  });
+
+  // ── Alert helpers ─────────────────────────────────────────────────────────
+  function showAlert(type, message) {
+    var el = document.getElementById('admin-alert');
+    el.innerHTML =
+      '<div class="alert alert-' + type + ' alert-dismissible fade show mb-0" role="alert">' +
+        '<span class="alert-text"></span>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+      '</div>';
+    el.classList.remove('d-none');
+    el.querySelector('.alert-text').textContent = message;
+  }
+
+  // ── Stats loader ──────────────────────────────────────────────────────────
+  function loadStats() {
+    $.ajax({
+      url: '/api/v1/library/stats/',
+      method: 'GET',
+      success: function (data) {
+        document.getElementById('stat-active-files').textContent   = data.active_files;
+        document.getElementById('stat-total-records').textContent  = data.total_records;
+        document.getElementById('stat-deleted-records').textContent = data.deleted_records;
+      }
+    });
+  }
+
+  // ── Table loader ──────────────────────────────────────────────────────────
+  function loadTable(deletedParam) {
+    var params = {};
+    if (deletedParam === 'true' || deletedParam === 'false') {
+      params.deleted = deletedParam;
+    }
+    $.ajax({
+      url: '/api/v1/library/',
+      method: 'GET',
+      data: params,
+      success: function (data) {
+        $table.bootstrapTable('load', data.results || []);
+        document.getElementById('name-filter').value = '';
+      },
+      error: function (xhr) {
+        var d   = xhr.responseJSON;
+        var msg = (d && d.error) ? d.error : 'Failed to load records.';
+        showAlert('danger', msg);
+      }
+    });
+  }
+
+  // ── Filter buttons ────────────────────────────────────────────────────────
+  document.querySelectorAll('.filter-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.filter-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      this.classList.add('active');
+      activeFilter = this.getAttribute('data-deleted');
+      loadTable(activeFilter);
+    });
+  });
+
+  // ── Client-side file name filter ──────────────────────────────────────────
+  document.getElementById('name-filter').addEventListener('input', function () {
+    var query = this.value.toLowerCase();
+    $('#admin-table tbody tr').each(function () {
+      var fileName = ($(this).attr('data-file-name') || '').toLowerCase();
+      $(this).toggle(!query || fileName.indexOf(query) !== -1);
+    });
+  });
+
+  // ── Delete action ─────────────────────────────────────────────────────────
+  document.getElementById('delete-confirm-btn').addEventListener('click', function () {
+    if (!pendingDeleteId) return;
+    var id = pendingDeleteId;
+
+    $.ajax({
+      url: '/api/v1/library/' + id + '/',
+      method: 'DELETE',
+      success: function () {
+        var currentRow = $table.bootstrapTable('getRowByUniqueId', id);
+        if (currentRow) {
+          $table.bootstrapTable('updateByUniqueId', {
+            id: id,
+            row: $.extend({}, currentRow, { deleted: true }),
+          });
+        }
+        deleteModal.hide();
+        loadStats();
+      },
+      error: function (xhr) {
+        deleteModal.hide();
+        var msg;
+        if (xhr.status === 429) {
+          msg = 'Too many requests. Please wait a moment before trying again.';
+        } else {
+          var d = xhr.responseJSON;
+          msg = (d && d.error) ? d.error : 'An error occurred. Please try again.';
+        }
+        showAlert('danger', msg);
+      }
+    });
+  });
+
+  // ── Undelete action ───────────────────────────────────────────────────────
+  function undeleteRecord(id) {
+    $.ajax({
+      url: '/api/v1/library/' + id + '/',
+      method: 'PATCH',
+      contentType: 'application/json',
+      data: JSON.stringify({ deleted: false }),
+      success: function () {
+        var currentRow = $table.bootstrapTable('getRowByUniqueId', id);
+        if (currentRow) {
+          $table.bootstrapTable('updateByUniqueId', {
+            id: id,
+            row: $.extend({}, currentRow, { deleted: false }),
+          });
+        }
+        loadStats();
+      },
+      error: function (xhr) {
+        var msg;
+        if (xhr.status === 429) {
+          msg = 'Too many requests. Please wait a moment before trying again.';
+        } else {
+          var d = xhr.responseJSON;
+          msg = (d && d.error) ? d.error : 'An error occurred. Please try again.';
+        }
+        showAlert('danger', msg);
+      }
+    });
+  }
+
+  // ── Clear Database ────────────────────────────────────────────────────────
+  document.getElementById('clear-db-btn').addEventListener('click', function () {
+    clearDbModal.show();
+  });
+
+  document.getElementById('clear-db-confirm-btn').addEventListener('click', function () {
+    $.ajax({
+      url: '/api/v1/library/clear/',
+      method: 'DELETE',
+      success: function () {
+        clearDbModal.hide();
+        loadStats();
+        loadTable(activeFilter);
+        showAlert('success', 'All records have been permanently deleted.');
+      },
+      error: function (xhr) {
+        clearDbModal.hide();
+        var msg;
+        if (xhr.status === 429) {
+          msg = 'Too many requests. Please wait a moment before trying again.';
+        } else {
+          msg = 'An error occurred. Please try again.';
+        }
+        showAlert('danger', msg);
+      }
+    });
+  });
+
+  // ── Initial page load ─────────────────────────────────────────────────────
+  loadStats();
+  loadTable('false');
+
+})();
+</script>
+{% endblock %}

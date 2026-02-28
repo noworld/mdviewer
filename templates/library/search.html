@@ -1,0 +1,329 @@
+{% extends 'base.html' %}
+
+{% block title %}Search — MD Viewer{% endblock %}
+
+{% block content %}
+<div id="search-alert" class="mb-3 d-none"></div>
+
+{# Search Form #}
+<div class="card mb-3">
+  <div class="card-body">
+    <form id="search-form" novalidate>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-8 col-lg-6">
+          <label for="search-input" class="form-label">File Name</label>
+          <input type="text" class="form-control" id="search-input"
+                 placeholder="Enter file name to search" maxlength="255" required>
+          <div class="invalid-feedback" id="search-input-error"></div>
+        </div>
+        <div class="col-auto">
+          <button type="submit" id="search-btn" class="btn btn-primary">
+            <span id="search-spinner"
+                  class="spinner-border spinner-border-sm d-none me-1"
+                  role="status" aria-hidden="true"></span>
+            Search
+          </button>
+        </div>
+        <div class="col-auto">
+          <button type="button" id="search-clear-btn" class="btn btn-secondary">Clear</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Results Table #}
+<div class="card mb-4">
+  <div class="card-body p-0">
+    <table id="results-table">
+      <thead>
+        <tr>
+          <th>File Name</th>
+          <th>Version</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+</div>
+
+{# Tab Area — hidden until a file is opened #}
+<div id="tab-area" class="d-none">
+  <ul class="nav nav-tabs" id="file-tabs" role="tablist"></ul>
+  <div class="tab-content border border-top-0 rounded-bottom p-3"
+       id="tab-content-area"></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+  'use strict';
+
+  // ── Bootstrap-Table init ─────────────────────────────────────────────────
+  var $table = $('#results-table');
+  $table.bootstrapTable({
+    sortName: 'file_name',
+    sortOrder: 'asc',
+    uniqueId: 'id',
+    rowAttributes: function (row) {
+      return { 'data-id': row.id };
+    },
+    formatNoMatches: function () {
+      return 'No files found matching that name.';
+    },
+    columns: [
+      { field: 'file_name',    title: 'File Name', sortable: true },
+      { field: 'file_version', title: 'Version',   sortable: true,
+        sorter: function (a, b) { return a - b; } },
+      {
+        field: 'id',
+        title: 'Actions',
+        formatter: function () {
+          return '<button type="button" class="btn btn-sm btn-outline-primary view-btn" title="View">' +
+                 '<i class="bi bi-eye"></i></button>';
+        },
+        events: {
+          'click .view-btn': function (e, value, row) {
+            openFileTab(row.id);
+          }
+        }
+      }
+    ]
+  });
+
+  // ── Alert helpers ────────────────────────────────────────────────────────
+  function showAlert(message) {
+    var el = document.getElementById('search-alert');
+    el.innerHTML =
+      '<div class="alert alert-danger alert-dismissible fade show mb-0" role="alert">' +
+        '<span class="alert-text"></span>' +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+      '</div>';
+    el.classList.remove('d-none');
+    el.querySelector('.alert-text').textContent = message;
+  }
+
+  function hideAlert() {
+    var el = document.getElementById('search-alert');
+    el.classList.add('d-none');
+    el.innerHTML = '';
+  }
+
+  // ── Search form ──────────────────────────────────────────────────────────
+  document.getElementById('search-clear-btn').addEventListener('click', function () {
+    document.getElementById('search-form').reset();
+    document.getElementById('search-input').classList.remove('is-invalid');
+    hideAlert();
+    $table.bootstrapTable('removeAll');
+  });
+
+  document.getElementById('search-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideAlert();
+
+    var inputEl = document.getElementById('search-input');
+    inputEl.classList.remove('is-invalid');
+
+    var query = inputEl.value.trim();
+    if (!query) {
+      inputEl.classList.add('is-invalid');
+      document.getElementById('search-input-error').textContent = 'File name is required.';
+      return;
+    }
+
+    var btn     = document.getElementById('search-btn');
+    var spinner = document.getElementById('search-spinner');
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+
+    $.ajax({
+      url: '/api/v1/library/',
+      method: 'GET',
+      data: { file_name: query, deleted: 'false' },
+      success: function (data) {
+        $table.bootstrapTable('load', data.results || []);
+      },
+      error: function (xhr) {
+        var msg;
+        if (xhr.status === 429) {
+          msg = 'Too many requests. Please wait a moment and try again.';
+        } else {
+          var d = xhr.responseJSON;
+          msg = (d && d.error) ? d.error : 'An error occurred. Please try again.';
+        }
+        showAlert(msg);
+      },
+      complete: function () {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+      }
+    });
+  });
+
+  // ── Tab management ───────────────────────────────────────────────────────
+  // openTabs: id → { file_name, file_version, rendered_html, file_contents }
+  var openTabs = {};
+
+  function openFileTab(id) {
+    // Switch to existing tab if already open
+    if (openTabs[id]) {
+      activateTab(id);
+      return;
+    }
+
+    $.ajax({
+      url: '/api/v1/library/' + id + '/',
+      method: 'GET',
+      success: function (data) {
+        var r = data.result;
+        openTabs[id] = {
+          file_name:     r.file_name,
+          file_version:  r.file_version,
+          rendered_html: r.rendered_html,
+          file_contents: r.file_contents,
+        };
+        createTab(id);
+        activateTab(id);
+        document.getElementById('tab-area').classList.remove('d-none');
+      },
+      error: function (xhr) {
+        var d      = xhr.responseJSON;
+        var status = (d && d.status) ? d.status : 'ERROR';
+        showAlert('Failed to load file (status: ' + status + ').');
+      }
+    });
+  }
+
+  function createTab(id) {
+    var info   = openTabs[id];
+    var paneId = 'tab-pane-' + id;
+    var tabId  = 'tab-btn-' + id;
+
+    // ── Tab nav item ──────────────────────────────────────────────────────
+    var li = document.createElement('li');
+    li.className = 'nav-item d-flex align-items-center';
+    li.id = 'tab-navitem-' + id;
+    li.setAttribute('role', 'presentation');
+
+    var tabBtn = document.createElement('button');
+    tabBtn.type = 'button';
+    tabBtn.className = 'nav-link';
+    tabBtn.id = tabId;
+    tabBtn.setAttribute('data-bs-toggle', 'tab');
+    tabBtn.setAttribute('data-bs-target', '#' + paneId);
+    tabBtn.setAttribute('role', 'tab');
+    tabBtn.textContent = info.file_name + ' v' + info.file_version;
+
+    // Close control — separate from the nav-link button (nested buttons are invalid HTML)
+    var closeSpan = document.createElement('span');
+    closeSpan.setAttribute('role', 'button');
+    closeSpan.className = 'ms-1 text-secondary';
+    closeSpan.title = 'Close tab';
+    closeSpan.style.cursor = 'pointer';
+    closeSpan.innerHTML = '<i class="bi bi-x fs-6"></i>';
+    closeSpan.addEventListener('click', function () { closeTab(id); });
+
+    li.appendChild(tabBtn);
+    li.appendChild(closeSpan);
+    document.getElementById('file-tabs').appendChild(li);
+
+    // ── Tab pane ──────────────────────────────────────────────────────────
+    var pane = document.createElement('div');
+    pane.className = 'tab-pane fade';
+    pane.id = paneId;
+    pane.setAttribute('role', 'tabpanel');
+    pane.setAttribute('aria-labelledby', tabId);
+
+    var h5 = document.createElement('h5');
+    h5.className = 'mb-3';
+    h5.textContent = info.file_name + ' \u2014 Version ' + info.file_version;
+
+    var btnGroup = document.createElement('div');
+    btnGroup.className = 'btn-group mb-3';
+    btnGroup.setAttribute('role', 'group');
+
+    var btnRendered = document.createElement('button');
+    btnRendered.type = 'button';
+    btnRendered.id = 'btn-rendered-' + id;
+    btnRendered.className = 'btn btn-sm btn-outline-secondary active';
+    btnRendered.textContent = 'Rendered';
+    btnRendered.addEventListener('click', function () { setViewMode(id, 'rendered'); });
+
+    var btnRaw = document.createElement('button');
+    btnRaw.type = 'button';
+    btnRaw.id = 'btn-raw-' + id;
+    btnRaw.className = 'btn btn-sm btn-outline-secondary';
+    btnRaw.textContent = 'Raw Markdown';
+    btnRaw.addEventListener('click', function () { setViewMode(id, 'raw'); });
+
+    btnGroup.appendChild(btnRendered);
+    btnGroup.appendChild(btnRaw);
+
+    // rendered_html is server-sanitized via python-markdown → nh3 — safe for innerHTML
+    var renderedDiv = document.createElement('div');
+    renderedDiv.id = 'rendered-div-' + id;
+    renderedDiv.className = 'rendered-content border rounded p-3';
+    renderedDiv.innerHTML = info.rendered_html;
+
+    var rawPre = document.createElement('pre');
+    rawPre.id = 'raw-pre-' + id;
+    rawPre.className = 'd-none border rounded p-3';
+    rawPre.style.whiteSpace = 'pre-wrap';
+    rawPre.style.fontFamily = 'monospace';
+    rawPre.textContent = info.file_contents;
+
+    pane.appendChild(h5);
+    pane.appendChild(btnGroup);
+    pane.appendChild(renderedDiv);
+    pane.appendChild(rawPre);
+    document.getElementById('tab-content-area').appendChild(pane);
+  }
+
+  function activateTab(id) {
+    var el = document.getElementById('tab-btn-' + id);
+    if (el) {
+      bootstrap.Tab.getOrCreateInstance(el).show();
+    }
+  }
+
+  function closeTab(id) {
+    var navItem   = document.getElementById('tab-navitem-' + id);
+    var pane      = document.getElementById('tab-pane-' + id);
+    var tabBtnEl  = document.getElementById('tab-btn-' + id);
+    var wasActive = tabBtnEl && tabBtnEl.classList.contains('active');
+
+    if (navItem) navItem.remove();
+    if (pane)    pane.remove();
+    delete openTabs[id];
+
+    var remaining = Object.keys(openTabs);
+    if (remaining.length === 0) {
+      document.getElementById('tab-area').classList.add('d-none');
+    } else if (wasActive) {
+      activateTab(remaining[remaining.length - 1]);
+    }
+  }
+
+  function setViewMode(id, mode) {
+    var renderedDiv = document.getElementById('rendered-div-' + id);
+    var rawPre      = document.getElementById('raw-pre-' + id);
+    var btnRendered = document.getElementById('btn-rendered-' + id);
+    var btnRaw      = document.getElementById('btn-raw-' + id);
+
+    if (mode === 'rendered') {
+      renderedDiv.classList.remove('d-none');
+      rawPre.classList.add('d-none');
+      btnRendered.classList.add('active');
+      btnRaw.classList.remove('active');
+    } else {
+      renderedDiv.classList.add('d-none');
+      rawPre.classList.remove('d-none');
+      btnRendered.classList.remove('active');
+      btnRaw.classList.add('active');
+    }
+  }
+
+})();
+</script>
+{% endblock %}
